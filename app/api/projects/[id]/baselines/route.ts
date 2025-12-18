@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
     const baselines = await prisma.baseline.findMany({
-      where: { projectId: params.id },
+      where: { projectId: id },
       orderBy: { createdAt: 'desc' }
     });
     return NextResponse.json(baselines);
@@ -13,13 +14,14 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
 }
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
     const body = await request.json();
     
     // Fetch current project state
     const project = await prisma.project.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         activities: {
             include: {
@@ -38,7 +40,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     // Create baseline with snapshot of data
     const baseline = await prisma.baseline.create({
       data: {
-        projectId: params.id,
+        projectId: id,
         name: body.name || `Baseline - ${new Date().toLocaleDateString()}`,
         data: JSON.stringify(project)
       }
