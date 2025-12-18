@@ -1,0 +1,7 @@
+{
+  "name": "Highshift Media AI Consultation",
+  "description": "An AI-powered chatbot to help you define your AI service needs and book a consultation call with Highshift Media.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
