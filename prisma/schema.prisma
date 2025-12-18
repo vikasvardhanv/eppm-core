@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id          String     @id @default(uuid())
+  name        String
+  description String?
+  startDate   DateTime
+  finishDate  DateTime?
+  status      String     @default("PLANNED") // PLANNED, ACTIVE, COMPLETED
+  activities  Activity[]
+  baselines   Baseline[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Baseline {
+  id          String     @id @default(uuid())
+  projectId   String
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name        String
+  createdAt   DateTime   @default(now())
+  data        String     // JSON string storing snapshot of activities/dates/costs
+}
+
+model Activity {
+  id             String       @id @default(uuid())
+  projectId      String
+  project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name           String
+  wbsCode        String?
+  costCode       String?      // Link to CBS
+  type           String       @default("TASK_DEPENDENT") // TASK_DEPENDENT, RESOURCE_DEPENDENT, START_MILESTONE, FINISH_MILESTONE
+  status         String       @default("NOT_STARTED") // NOT_STARTED, IN_PROGRESS, COMPLETED
+  
+  // Duration & Dates (in hours)
+  originalDuration Int        @default(8) 
+  remainingDuration Int       @default(8)
+  actualDuration    Int       @default(0)
+  percentComplete   Float     @default(0)
+  
+  startDate      DateTime?
+  finishDate     DateTime?
+  
+  // CPM Calculated Dates
+  earlyStart     DateTime?
+  earlyFinish    DateTime?
+  lateStart      DateTime?
+  lateFinish     DateTime?
+  totalFloat     Int?
+  freeFloat      Int?
+  isCritical     Boolean      @default(false)
+  
+  // Relationships
+  predecessors   Relationship[] @relation("Predecessor")
+  successors     Relationship[] @relation("Successor")
+  
+  // Resources
+  assignments    Assignment[]
+  
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Relationship {
+  id             String   @id @default(uuid())
+  predecessorId  String
+  predecessor    Activity @relation("Predecessor", fields: [predecessorId], references: [id], onDelete: Cascade)
+  successorId    String
+  successor      Activity @relation("Successor", fields: [successorId], references: [id], onDelete: Cascade)
+  type           String   @default("FS") // FS, SS, FF, SF
+  lag            Int      @default(0)
+}
+
+model Role {
+  id             String       @id @default(uuid())
+  name           String       // e.g. "Senior Engineer"
+  maxUnits       Float        @default(1.0)
+  resources      Resource[]
+}
+
+model Resource {
+  id             String       @id @default(uuid())
+  name           String
+  type           String       @default("LABOR") // LABOR, NON_LABOR, MATERIAL
+  unitPrice      Float        @default(0.0)
+  maxUnits       Float        @default(1.0) // e.g. 1.0 = 100% availability
+  roleId         String?
+  role           Role?        @relation(fields: [roleId], references: [id])
+  assignments    Assignment[]
+}
+
+model Assignment {
+  id             String   @id @default(uuid())
+  activityId     String
+  activity       Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  resourceId     String
+  resource       Resource @relation(fields: [resourceId], references: [id])
+  
+  plannedUnits   Float    @default(0)
+  actualUnits    Float    @default(0)
+  remainingUnits Float    @default(0)
+  
+  cost           Float    @default(0) // Calculated cost
+}
+
+model User {
+  id       String @id @default(uuid())
+  email    String @unique
+  name     String?
+  role     String @default("TEAM_MEMBER") // ADMIN, TEAM_MEMBER
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  entityId  String
+  entityType String   // ACTIVITY, PROJECT, RESOURCE
+  action    String   // CREATE, UPDATE, DELETE
+  details   String?
+  createdAt DateTime @default(now())
+}
